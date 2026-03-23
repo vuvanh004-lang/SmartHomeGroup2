@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Home System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --primary: #3b82f6;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--text);
+            font-size: 28px;
+            margin-bottom: 30px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .alert-banner {
+            display: none;
+            background-color: var(--danger);
+            color: white;
+            width: 100%;
+            max-width: 800px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 20px;
+            margin-bottom: 20px;
+            animation: blink 1s infinite;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; background-color: #dc2626; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background-color: var(--surface);
+            padding: 25px 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .card:hover { transform: translateY(-2px); }
+        .card i { font-size: 32px; margin-bottom: 15px; color: var(--primary); }
+        .card.danger i { color: var(--danger); }
+        .card.success i { color: var(--success); }
+
+        .card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .card .value {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .panel-section {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--surface);
+            padding: 30px;
+            border-radius: 16px;
+            box-sizing: border-box;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 18px;
+            border-bottom: 1px solid #334155;
+            padding-bottom: 10px;
+            color: var(--text);
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            background-color: #334155;
+            text-transform: uppercase;
+        }
+
+        .btn:active { transform: scale(0.95); }
+        .btn.active { background-color: var(--primary); box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
+
+        .manual-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .device-btn {
+            background-color: #334155;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .device-btn i { font-size: 24px; }
+        .device-btn.device-on {
+            background-color: rgba(16, 185, 129, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            font-size: 20px;
+            font-weight: bold;
+            color: var(--warning);
+            z-index: 10;
+            backdrop-filter: blur(2px);
+        }
+
+        #manual-wrapper { position: relative; }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <h1><i class="fas fa-home"></i> Smart Home Dashboard</h1>
+
+    <div id="gas-alert" class="alert-banner">
+        <i class="fas fa-exclamation-triangle"></i> DANGER: GAS LEAK DETECTED!
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="card">
+            <i class="fas fa-temperature-half"></i>
+            <h3>Temperature</h3>
+            <p class="value"><span id="temp">--</span>&deg;C</p>
+        </div>
+        <div class="card">
+            <i class="fas fa-droplet"></i>
+            <h3>Humidity</h3>
+            <p class="value"><span id="hum">--</span>%</p>
+        </div>
+        <div class="card" id="gas-card">
+            <i class="fas fa-fire-flame-simple"></i>
+            <h3>Gas Level</h3>
+            <p class="value" id="gas">--</p>
+        </div>
+        <div class="card" id="door-card">
+            <i class="fas fa-door-closed" id="door-icon"></i>
+            <h3>Door Status</h3>
+            <p class="value" id="door-state">CLOSED</p>
+        </div>
+    </div>
+
+    <div class="panel-section">
+        <h2 class="section-title"><i class="fas fa-chart-line"></i> Environment History</h2>
+        <div class="chart-container">
+            <canvas id="historyChart"></canvas>
+        </div>
+    </div>
+
+    <div class="panel-section">
+        <h2 class="section-title"><i class="fas fa-sliders"></i> System Control</h2>
+        <div class="mode-selector">
+            <button class="btn" id="btn-mode-AUTO" onclick="setMode('AUTO')">Auto</button>
+            <button class="btn" id="btn-mode-MANUAL" onclick="setMode('MANUAL')">Manual</button>
+            <button class="btn" id="btn-mode-NIGHT" onclick="setMode('NIGHT')">Night</button>
+        </div>
+
+        <h2 class="section-title" style="margin-top: 20px;">Manual Switches</h2>
+        <div id="manual-wrapper">
+            <div id="manual-overlay" class="overlay" style="display: none;">
+                SWITCH TO MANUAL MODE TO CONTROL
+            </div>
+            <div class="manual-grid">
+                <button class="device-btn" id="dev-LED" onclick="toggleDevice('LED')">
+                    <i class="fas fa-lightbulb"></i> LED 1
+                </button>
+                <button class="device-btn" id="dev-RGB" onclick="toggleDevice('RGB')">
+                    <i class="fas fa-palette"></i> LED 2
+                </button>
+                <button class="device-btn" id="dev-FAN" onclick="toggleDevice('FAN')">
+                    <i class="fas fa-fan"></i> Fan
+                </button>
+                <button class="device-btn" id="dev-DOOR" onclick="toggleDevice('DOOR')">
+                    <i class="fas fa-door-open"></i> Door
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let envChart;
+
+        function initChart() {
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.font.family = "'Segoe UI', sans-serif";
+            
+            envChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Temperature (°C)',
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            data: [],
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Humidity (%)',
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            data: [],
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        x: { grid: { color: '#334155' } },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            grid: { color: '#334155' },
+                            title: { display: true, text: 'Temp (°C)' }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            title: { display: true, text: 'Humidity (%)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartData() {
+            fetch('/history')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.labels && data.labels.length > 0) {
+                        envChart.data.labels = data.labels;
+                        envChart.data.datasets[0].data = data.temps;
+                        envChart.data.datasets[1].data = data.hums;
+                        envChart.update();
+                    }
+                })
+                .catch(err => console.error("Chart Error:", err));
+        }
+
+        function setMode(mode) {
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mode', value: mode })
+            });
+        }
+
+        function toggleDevice(device) {
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'toggle', value: device })
+            });
+        }
+
+        function updateUI() {
+            fetch('/data')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('temp').innerText = data.temp;
+                    document.getElementById('hum').innerText = data.hum;
+                    document.getElementById('gas').innerText = data.gas;
+                    
+                    document.getElementById('door-state').innerText = data.door;
+                    const doorIcon = document.getElementById('door-icon');
+                    if(data.door === "OPEN") {
+                        doorIcon.className = "fas fa-door-open";
+                        document.getElementById('door-card').classList.add('success');
+                    } else {
+                        doorIcon.className = "fas fa-door-closed";
+                        document.getElementById('door-card').classList.remove('success');
+                    }
+
+                    const gasAlert = document.getElementById('gas-alert');
+                    const gasCard = document.getElementById('gas-card');
+                    if(data.gas_alert) {
+                        gasAlert.style.display = "block";
+                        gasCard.classList.add('danger');
+                    } else {
+                        gasAlert.style.display = "none";
+                        gasCard.classList.remove('danger');
+                    }
+
+                    document.querySelectorAll('.mode-selector .btn').forEach(btn => btn.classList.remove('active'));
+                    const activeModeBtn = document.getElementById(`btn-mode-${data.mode}`);
+                    if (activeModeBtn) {
+                        activeModeBtn.classList.add('active');
+                    }
+                    
+                    const manualOverlay = document.getElementById('manual-overlay');
+                    if (data.mode === 'MANUAL') {
+                        manualOverlay.style.display = 'none';
+                    } else {
+                        manualOverlay.style.display = 'flex';
+                    }
+
+                    const states = data.manual_state;
+                    ['LED', 'RGB', 'FAN', 'DOOR'].forEach(dev => {
+                        const btn = document.getElementById(`dev-${dev}`);
+                        if (states[dev]) {
+                            btn.classList.add('device-on');
+                        } else {
+                            btn.classList.remove('device-on');
+                        }
+                    });
+                })
+                .catch(err => console.error(err));
+        }
+
+        window.onload = function() {
+            initChart();
+            updateChartData();
+            updateUI();
+            
+            setInterval(updateUI, 1000);
+            setInterval(updateChartData, 60000); 
+        };
+    </script>
+</body>
+</html>
